@@ -57,6 +57,11 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 		$id_attr = $this->sourceIdAttr;
 		$slug = $this->owner->$id_attr . "-" . $slug;
 
+		// trim if necessary:
+		if (mb_strlen($slug) > $this->maxChars) {
+			$slug = mb_substr($slug, 0, $this->maxChars);
+		}
+
 		// done
 		return $slug;
 	}
