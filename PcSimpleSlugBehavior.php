@@ -21,6 +21,11 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 	public $maxChars = 100;
 
 	/**
+	 * @var bool whether to lowercase the resulted URLs or not. default = yes.
+	 */
+	public $lowercaseUrl = true;
+
+	/**
 	 * @return string: the prepared slug for 'this->owner' model object
 	 * @throws CException
 	 */
@@ -60,6 +65,11 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 		// trim if necessary:
 		if (mb_strlen($slug) > $this->maxChars) {
 			$slug = mb_substr($slug, 0, $this->maxChars);
+		}
+
+		// lowercase url if needed to
+		if ($this->lowercaseUrl) {
+			$slug = mb_strtolower($slug);
 		}
 
 		// done
