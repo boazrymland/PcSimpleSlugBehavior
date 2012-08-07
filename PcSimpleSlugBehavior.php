@@ -52,11 +52,7 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 		// all passed. do the magic:
 		$text_attr = $this->sourceStringAttr;
 		// convert all spaces to underscores:
-		$slug = strtr($this->owner->$text_attr, " ", "_");
-		// convert what's needed to convert to nothing (remove them...)
-		$slug = preg_replace('/[\!\@\#\$\%\^\&\*\(\)\+\=\~\:\.\,\;\'\"\<\>\/\\\`]/', "", $slug);
-		// convert underscores to dashes
-		$slug = strtr($slug, "_", "-");
+		$slug = $this->createBaseSlug($this->owner->$text_attr);
 
 		// prepend everything with the id of the model followed by a dash
 		$id_attr = $this->sourceIdAttr;
@@ -69,11 +65,36 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 
 		// lowercase url if needed to
 		if ($this->lowercaseUrl) {
-			$slug = mb_strtolower($slug);
+			$slug = mb_strtolower($slug, 'UTF-8');
 		}
 
 		// done
 		return $slug;
+	}
+
+	/**
+	 * Returns 'treated' string with special characters stripped off of it, spaces turned to dashes. It serves as a 'base
+	 * slug' that can be further treated (and used internally by generateUniqueSlug()).
+	 * It is useful when you need to add misc paramters to URLs and want them 'treated' (as 'treated' is performed here)
+	 * but those string are irrelevant to Id of a model etc. E.g.: Create a URL in the format of "/.../<city-name>/..."
+	 * - the city-name parameter was required to be 'treated' before applying to URL.
+	 *
+	 * @param string $str source string
+	 * @return string resulted string after manipulation.
+	 */
+	public function createBaseSlug($str) {
+		// convert all spaces to underscores:
+		$treated = strtr($str, " ", "_");
+		// convert what's needed to convert to nothing (remove them...)
+		$treated = preg_replace('/[\!\@\#\$\%\^\&\*\(\)\+\=\~\:\.\,\;\'\"\<\>\/\\\`]/', "", $treated);
+		// convert underscores to dashes
+		$treated = strtr($treated, "_", "-");
+
+		if ($this->lowercaseUrl) {
+			$treated = mb_strtolower($treated, 'UTF-8');
+		}
+
+		return $treated;
 	}
 
 	/**
