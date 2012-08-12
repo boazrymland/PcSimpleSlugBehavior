@@ -5,12 +5,17 @@
  *
  */
 class PcSimpleSlugBehavior extends CActiveRecordBehavior {
-	/*
+	/**
 	 * @var string the attribute that contains the 'main string' that is used when building the slug
 	 */
 	public $sourceStringAttr = "title";
 
-	/*
+	/**
+	 * @var string the attribute that contains the 'main string' that is used when building the slug
+	 */
+	public $sourceStringPrepareMethod = false;
+
+	/**
 	 * @var string the attribute/column name that holds the Id/primary-key for this model.
 	 */
 	public $sourceIdAttr = 'id';
@@ -24,13 +29,41 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 	 * @var bool whether to lowercase the resulted URLs or not. default = yes.
 	 */
 	public $lowercaseUrl = true;
+	/**
+	 * @var string the slug.
+	 */
+	private $slug;
 
 	/**
 	 * @return string: the prepared slug for 'this->owner' model object
 	 * @throws CException
 	 */
 	public function generateUniqueSlug() {
-		// check that the defined 'source string attribute' exists for 'this' model. explode if not.
+		// check that the defined 'id attribute' exists for 'this' model. explode if not.
+		if (!$this->owner->hasAttribute($this->sourceIdAttr)) {
+			throw new CException ("requested to prepare a slug for " .
+						get_class($this->owner) .
+						" (id=" . $this->owner->getPrimaryKey() .
+						") but this model doesn't have an attribute named " . $this->sourceIdAttr .
+						" from which I'm supposed to create the slug. Don't know how to continue. Please help!"
+			);
+		}
+		// if we're supposed to get the slug raw material from a method, check it exists and if so run it.
+		if ($this->sourceStringPrepareMethod) {
+			if (method_exists($this->owner, $this->sourceStringPrepareMethod)) {
+				$this->slug = $this->createBaseSlug($this->owner->{$this->sourceStringPrepareMethod}());
+			}
+			else {
+			throw new CException ("requested to prepare a slug for " .
+						get_class($this->owner) .
+						" (id=" . $this->owner->getPrimaryKey() .
+							") but this model doesn't have the method that was supposed to return the string for the slug (method name={$this->sourceStringPrepareMethod})." .
+							" Don't know how to continue. Please fix it!"
+			);
+		}
+
+		}
+		// no preparation method - check that the defined 'source string attribute' exists for 'this' model. explode if not.
 		if (!$this->owner->hasAttribute($this->sourceStringAttr)) {
 			throw new CException ("requested to prepare a slug for " .
 						get_class($this->owner) .
@@ -39,43 +72,34 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 						" from which I'm supposed to create the slug. Don't know how to continue. Please fix it!"
 			);
 		}
-		// check that the defined 'id attribute' exists for 'this' model. explode if not.
-		if (!$this->owner->hasAttribute($this->sourceIdAttr))  {
-			throw new CException ("requested to prepare a slug for " .
-						get_class($this->owner) .
-						" (id=" . $this->owner->getPrimaryKey() .
-						") but this model doesn't have an attribute named " . $this->sourceIdAttr .
-						" from which I'm supposed to create the slug. Don't know how to continue. Please help!"
-			);
-		}
-
-		// all passed. do the magic:
-		$text_attr = $this->sourceStringAttr;
+		else {
+			// create the base slug out of this attribute:
 		// convert all spaces to underscores:
-		$slug = $this->createBaseSlug($this->owner->$text_attr);
+			$this->slug = $this->createBaseSlug($this->owner->{$this->sourceStringAttr});
+		}
 
 		// prepend everything with the id of the model followed by a dash
 		$id_attr = $this->sourceIdAttr;
-		$slug = $this->owner->$id_attr . "-" . $slug;
+		$this->slug = $this->owner->$id_attr . "-" . $this->slug;
 
 		// trim if necessary:
-		if (mb_strlen($slug) > $this->maxChars) {
-			$slug = mb_substr($slug, 0, $this->maxChars);
+		if (mb_strlen($this->slug) > $this->maxChars) {
+			$this->slug = mb_substr($this->slug, 0, $this->maxChars);
 		}
 
 		// lowercase url if needed to
 		if ($this->lowercaseUrl) {
-			$slug = mb_strtolower($slug, 'UTF-8');
+			$this->slug = mb_strtolower($this->slug, 'UTF-8');
 		}
 
 		// done
-		return $slug;
+		return $this->slug;
 	}
 
 	/**
 	 * Returns 'treated' string with special characters stripped off of it, spaces turned to dashes. It serves as a 'base
 	 * slug' that can be further treated (and used internally by generateUniqueSlug()).
-	 * It is useful when you need to add misc paramters to URLs and want them 'treated' (as 'treated' is performed here)
+	 * It is useful when you need to add misc parameters to URLs and want them 'treated' (as 'treated' is performed here)
 	 * but those string are irrelevant to Id of a model etc. E.g.: Create a URL in the format of "/.../<city-name>/..."
 	 * - the city-name parameter was required to be 'treated' before applying to URL.
 	 *
