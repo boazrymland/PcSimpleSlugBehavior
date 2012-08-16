@@ -64,17 +64,17 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 
 		}
 		// no preparation method - check that the defined 'source string attribute' exists for 'this' model. explode if not.
-		if (!$this->owner->hasAttribute($this->sourceStringAttr)) {
-			throw new CException ("requested to prepare a slug for " .
-						get_class($this->owner) .
-						" (id=" . $this->owner->getPrimaryKey() .
-						") but this model doesn't have an attribute named " . $this->sourceStringAttr .
-						" from which I'm supposed to create the slug. Don't know how to continue. Please fix it!"
-			);
-		}
 		else {
+			if (!$this->owner->hasAttribute($this->sourceStringAttr)) {
+				throw new CException ("requested to prepare a slug for " .
+							get_class($this->owner) .
+							" (id=" . $this->owner->getPrimaryKey() .
+							") but this model doesn't have an attribute named " . $this->sourceStringAttr .
+							" from which I'm supposed to create the slug. Don't know how to continue. Please fix it!"
+				);
+			}
 			// create the base slug out of this attribute:
-		// convert all spaces to underscores:
+			// convert all spaces to underscores:
 			$this->slug = $this->createBaseSlug($this->owner->{$this->sourceStringAttr});
 		}
 
