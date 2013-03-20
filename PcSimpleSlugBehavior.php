@@ -157,10 +157,56 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 	 * Returns the Id (=primary key) from a given slug
 	 *
 	 * @param string $slug
+	 * @param bool $id_prefix if an id prefix is expected in the slug or not.
 	 * @return int
 	 */
-	public function getIdFromSlug($slug) {
+	public function getIdFromSlug($slug, $id_prefix = true) {
 		$parts = explode("-", $slug);
-		return $parts[0];
+		if ($id_prefix) {
+			return $parts[0];
+		}
+		else {
+			// prepare the 'like' query condition
+			$like_construct = implode("%", $parts);
+			$like_construct = '%' . $like_construct . '%';
+			$ids = Yii::app()->db->createCommand()
+				->select('id')
+				->from($this->owner->tableName())
+				->where(array('like', $this->sourceStringAttr, $like_construct))
+				->queryAll();
+			switch (count($ids)) {
+				case 0:
+				{
+					// no such record found! Wierd and probably indicate a problem with selecting id-less slugs in the first
+					// place. log this incident
+					Yii::log("Error: parsing slug has resulted in NO record found. Model class: " . get_class($this->owner)
+							. ", slug: $slug, id_prefix? " . ($id_prefix) ? " => yes, id prefixed." : " => no, no id prefixing.",
+						CLogger::LEVEL_ERROR, __METHOD__);
+					return false;
+					break;
+				}
+				case 1:
+				{
+					return $ids[0]['id'];
+					break;
+				}
+				default:
+					{
+					/*
+					 * more than 1? This means you have more than 1 record with a title like the one we got a slug for.
+					 * this probably means that choosing id-less slug wasn't a good design decision... .
+					 */
+					$ids_concat = '';
+					foreach ($ids as $record_id_arr) {
+						$ids_concat .= $record_id_arr['id'] . ",";
+					}
+					$ids_concat = trim($ids_concat, ",");
+					Yii::log("Error: more than matched record for given slug! Returning just one (no particular order). Model" .
+						" class: " . get_class($this->owner) . ", slug: '" . $slug . "', (id prefixing=false). Got these IDs: " .
+						$ids_concat, CLogger::LEVEL_ERROR, __METHOD__);
+					return $ids[0]['id'];
+					}
+			}
+		}
 	}
 }
