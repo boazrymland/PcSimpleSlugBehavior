@@ -41,6 +41,13 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 	public $sourceIdAttr = 'id';
 
 	/**
+	 * @var bool Supports avoiding prefixing the 'id' attribute of the model in the beginning of the slug. Use
+	 * with caution(!) as this is tricky can can lead to two record with the same slug (consider carefully
+	 * your requirements before setting this to true).
+	 */
+	public $avoidIdPrefixing = false;
+
+	/**
 	 * @var int maximum allowed slug length. slug will be crudely trimmed to this length if longer than it.
 	 */
 	public $maxChars = 100;
@@ -59,14 +66,16 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 	 * @throws CException
 	 */
 	public function generateUniqueSlug() {
-		// check that the defined 'id attribute' exists for 'this' model. explode if not.
-		if (!$this->owner->hasAttribute($this->sourceIdAttr)) {
-			throw new CException ("requested to prepare a slug for " .
+		if (!$this->avoidIdPrefixing) {
+			// check that the defined 'id attribute' exists for 'this' model. explode if not.
+			if (!$this->owner->hasAttribute($this->sourceIdAttr)) {
+				throw new CException ("requested to prepare a slug for " .
 						get_class($this->owner) .
 						" (id=" . $this->owner->getPrimaryKey() .
 						") but this model doesn't have an attribute named " . $this->sourceIdAttr .
 						" from which I'm supposed to create the slug. Don't know how to continue. Please help!"
-			);
+				);
+			}
 		}
 		// if we're supposed to get the slug raw material from a method, check it exists and if so run it.
 		if ($this->sourceStringPrepareMethod) {
@@ -74,23 +83,23 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 				$this->slug = $this->createBaseSlug($this->owner->{$this->sourceStringPrepareMethod}());
 			}
 			else {
-			throw new CException ("requested to prepare a slug for " .
+				throw new CException ("requested to prepare a slug for " .
 						get_class($this->owner) .
 						" (id=" . $this->owner->getPrimaryKey() .
-							") but this model doesn't have the method that was supposed to return the string for the slug (method name={$this->sourceStringPrepareMethod})." .
-							" Don't know how to continue. Please fix it!"
-			);
-		}
+						") but this model doesn't have the method that was supposed to return the string for the slug (method name={$this->sourceStringPrepareMethod})." .
+						" Don't know how to continue. Please fix it!"
+				);
+			}
 
 		}
 		// no preparation method - check that the defined 'source string attribute' exists for 'this' model. explode if not.
 		else {
 			if (!$this->owner->hasAttribute($this->sourceStringAttr)) {
 				throw new CException ("requested to prepare a slug for " .
-							get_class($this->owner) .
-							" (id=" . $this->owner->getPrimaryKey() .
-							") but this model doesn't have an attribute named " . $this->sourceStringAttr .
-							" from which I'm supposed to create the slug. Don't know how to continue. Please fix it!"
+						get_class($this->owner) .
+						" (id=" . $this->owner->getPrimaryKey() .
+						") but this model doesn't have an attribute named " . $this->sourceStringAttr .
+						" from which I'm supposed to create the slug. Don't know how to continue. Please fix it!"
 				);
 			}
 			// create the base slug out of this attribute:
@@ -99,8 +108,10 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 		}
 
 		// prepend everything with the id of the model followed by a dash
-		$id_attr = $this->sourceIdAttr;
-		$this->slug = $this->owner->$id_attr . "-" . $this->slug;
+		if (!$this->avoidIdPrefixing) {
+			$id_attr = $this->sourceIdAttr;
+			$this->slug = $this->owner->$id_attr . "-" . $this->slug;
+		}
 
 		// trim if necessary:
 		if (mb_strlen($this->slug) > $this->maxChars) {
@@ -119,6 +130,7 @@ class PcSimpleSlugBehavior extends CActiveRecordBehavior {
 	/**
 	 * Returns 'treated' string with special characters stripped off of it, spaces turned to dashes. It serves as a 'base
 	 * slug' that can be further treated (and used internally by generateUniqueSlug()).
+	 *
 	 * It is useful when you need to add misc parameters to URLs and want them 'treated' (as 'treated' is performed here)
 	 * but those string are irrelevant to Id of a model etc. E.g.: Create a URL in the format of "/.../<city-name>/..."
 	 * - the city-name parameter was required to be 'treated' before applying to URL.
